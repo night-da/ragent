@@ -45,6 +45,7 @@ public final class EnricherPromptManager {
     }
 
     private EnricherPromptManager() {
+
     }
 
     public static String systemPrompt(ChunkEnrichType type) {

@@ -32,9 +32,16 @@ public class GuidanceProperties {
     private Boolean enabled = true;
 
     /**
-     * 触发引导式问答的最低分数相对阈值（次高分 >= 最高分 * ratio）
+     * 歧义阈值：ratio >= 此值直接判定歧义，触发澄清
      */
     private Double ambiguityScoreRatio = 0.8D;
+
+    /**
+     * 歧义阈值缓冲区宽度
+     * ratio 在 [ambiguityScoreRatio - margin, ambiguityScoreRatio) 区间时进入 LLM 二次确认
+     * ratio < ambiguityScoreRatio - margin 时不触发澄清
+     */
+    private Double ambiguityMargin = 0.15D;
 
     /**
      * 单次最多展示的选项数量

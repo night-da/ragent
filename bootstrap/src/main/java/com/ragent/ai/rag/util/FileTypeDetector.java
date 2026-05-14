@@ -45,6 +45,7 @@ public final class FileTypeDetector {
     );
 
     private FileTypeDetector() {
+
     }
 
     public static String detectType(String fileName) {

@@ -27,7 +27,6 @@ import com.ragent.ai.rag.core.intent.NodeScore;
 import com.ragent.ai.rag.core.retrieve.RetrieverService;
 import com.ragent.ai.rag.core.retrieve.channel.strategy.CollectionParallelRetriever;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -38,9 +37,6 @@ import java.util.concurrent.Executor;
 
 /**
  * 向量全局检索通道
- * <p>
- * 在所有知识库中进行向量检索，作为兜底策略
- * 当意图识别失败或置信度低时启用
  */
 @Slf4j
 @Component
@@ -53,7 +49,7 @@ public class VectorGlobalSearchChannel implements SearchChannel {
     public VectorGlobalSearchChannel(RetrieverService retrieverService,
                                      SearchChannelProperties properties,
                                      KnowledgeBaseMapper knowledgeBaseMapper,
-                                     @Qualifier("ragInnerRetrievalThreadPoolExecutor") Executor innerRetrievalExecutor) {
+                                     Executor innerRetrievalExecutor) {
         this.properties = properties;
         this.knowledgeBaseMapper = knowledgeBaseMapper;
         this.parallelRetriever = new CollectionParallelRetriever(retrieverService, innerRetrievalExecutor);
@@ -76,7 +72,6 @@ public class VectorGlobalSearchChannel implements SearchChannel {
             return false;
         }
 
-        // 条件 1：没有识别出任何意图
         List<NodeScore> allScores = context.getIntents().stream()
                 .flatMap(si -> si.nodeScores().stream())
                 .toList();
@@ -85,7 +80,6 @@ public class VectorGlobalSearchChannel implements SearchChannel {
             return true;
         }
 
-        // 条件 2：意图置信度都很低
         double maxScore = allScores.stream()
                 .mapToDouble(NodeScore::getScore)
                 .max()
@@ -94,6 +88,12 @@ public class VectorGlobalSearchChannel implements SearchChannel {
         double threshold = properties.getChannels().getVectorGlobal().getConfidenceThreshold();
         if (maxScore < threshold) {
             log.info("意图置信度过低（{}），启用全局检索", maxScore);
+            return true;
+        }
+
+        double supplementThreshold = properties.getChannels().getVectorGlobal().getSingleIntentSupplementThreshold();
+        if (allScores.size() == 1 && maxScore < supplementThreshold) {
+            log.info("单一中等置信度意图（{}），启用补充全局检索", maxScore);
             return true;
         }
 
@@ -116,7 +116,6 @@ public class VectorGlobalSearchChannel implements SearchChannel {
                         .channelType(SearchChannelType.VECTOR_GLOBAL)
                         .channelName(getName())
                         .chunks(List.of())
-                        .confidence(0.0)
                         .latencyMs(System.currentTimeMillis() - startTime)
                         .build();
             }
@@ -137,7 +136,6 @@ public class VectorGlobalSearchChannel implements SearchChannel {
                     .channelType(SearchChannelType.VECTOR_GLOBAL)
                     .channelName(getName())
                     .chunks(allChunks)
-                    .confidence(0.7)  // 全局检索置信度中等
                     .latencyMs(latency)
                     .build();
 
@@ -147,7 +145,6 @@ public class VectorGlobalSearchChannel implements SearchChannel {
                     .channelType(SearchChannelType.VECTOR_GLOBAL)
                     .channelName(getName())
                     .chunks(List.of())
-                    .confidence(0.0)
                     .latencyMs(System.currentTimeMillis() - startTime)
                     .build();
         }

@@ -60,9 +60,10 @@ public class MilvusConfig {
     public MilvusClientV2 milvusClient(@Value("${milvus.uri}") String uri,
                                        @Value("${milvus.token:}") String token) {
 
-        // 使用构建器模式创建 Milvus 连接配置
         ConnectConfig.ConnectConfigBuilder builder = ConnectConfig.builder()
-                .uri(uri);
+                .uri(uri)
+                .connectTimeoutMs(10000)
+                .rpcDeadlineMs(30000);
 
         // 如果配置了 token，则启用 Token 鉴权
         if (token != null && !token.isEmpty()) {

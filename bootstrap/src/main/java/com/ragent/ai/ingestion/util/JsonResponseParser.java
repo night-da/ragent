@@ -37,6 +37,7 @@ public final class JsonResponseParser {
     private static final Gson GSON = new Gson();
 
     private JsonResponseParser() {
+
     }
 
     public static List<String> parseStringList(String raw) {

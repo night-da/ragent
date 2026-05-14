@@ -33,6 +33,7 @@ public final class RagTraceContext {
     private static final TransmittableThreadLocal<Deque<String>> NODE_STACK = new TransmittableThreadLocal<>();
 
     private RagTraceContext() {
+
     }
 
     public static String getTraceId() {

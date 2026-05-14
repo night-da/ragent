@@ -136,6 +136,7 @@ public class EnhancerNode implements IngestionNode {
             case QUESTIONS -> context.setQuestions(JsonResponseParser.parseStringList(response));
             case METADATA -> context.getMetadata().putAll(JsonResponseParser.parseObject(response));
             default -> {
+
             }
         }
     }

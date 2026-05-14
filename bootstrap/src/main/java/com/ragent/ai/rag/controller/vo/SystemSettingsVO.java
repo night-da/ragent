@@ -145,7 +145,6 @@ public class SystemSettingsVO {
     @Builder
     public static class MemorySettings {
         private Integer historyKeepTurns;
-        private Integer ttlMinutes;
         private Boolean summaryEnabled;
         private Integer summaryStartTurns;
         private Integer summaryMaxChars;
@@ -209,13 +208,9 @@ public class SystemSettingsVO {
     @Getter
     public static class QueryRewriteSettings {
         private Boolean enabled;
-        private Integer maxHistoryMessages;
-        private Integer maxHistoryChars;
 
-        public QueryRewriteSettings(Boolean enabled, Integer maxHistoryMessages, Integer maxHistoryChars) {
+        public QueryRewriteSettings(Boolean enabled) {
             this.enabled = enabled;
-            this.maxHistoryMessages = maxHistoryMessages;
-            this.maxHistoryChars = maxHistoryChars;
         }
 
         public static QueryRewriteSettingsBuilder builder() {
@@ -224,26 +219,14 @@ public class SystemSettingsVO {
 
         public static class QueryRewriteSettingsBuilder {
             private Boolean enabled;
-            private Integer maxHistoryMessages;
-            private Integer maxHistoryChars;
 
             public QueryRewriteSettingsBuilder enabled(Boolean enabled) {
                 this.enabled = enabled;
                 return this;
             }
 
-            public QueryRewriteSettingsBuilder maxHistoryMessages(Integer maxHistoryMessages) {
-                this.maxHistoryMessages = maxHistoryMessages;
-                return this;
-            }
-
-            public QueryRewriteSettingsBuilder maxHistoryChars(Integer maxHistoryChars) {
-                this.maxHistoryChars = maxHistoryChars;
-                return this;
-            }
-
             public QueryRewriteSettings build() {
-                return new QueryRewriteSettings(enabled, maxHistoryMessages, maxHistoryChars);
+                return new QueryRewriteSettings(enabled);
             }
         }
     }

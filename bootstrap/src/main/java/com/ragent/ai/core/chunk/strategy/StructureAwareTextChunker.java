@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
 
 /**
  * 结构感知分块器（Markdown 友好版）
- * - 绝不改写文本，只在"块"边界切分
+ * - 绝不改写文本，只在 "块" 边界切分
  * - 块类型：Heading、Paragraph（空行分段）、CodeFence（```...```）、Atomic（整行 ![]()/[]()）
  * - 通过 min/target/max 预算控制 chunk 大小
  * - 支持可选的 overlap
@@ -66,7 +66,7 @@ public class StructureAwareTextChunker implements ChunkingStrategy {
         int effectiveMin = opts.minChars();
         int effectiveOverlap = opts.overlapChars();
 
-        // 1) 扫描成“块”（记录原文的 start/end 下标，确保输出 substring 完全等于原文）
+        // 1) 扫描成 "块"（记录原文的 start/end 下标，确保输出 substring 完全等于原文）
         List<Block> blocks = segmentToBlocks(text);
 
         if (blocks.isEmpty()) {
@@ -81,7 +81,7 @@ public class StructureAwareTextChunker implements ChunkingStrategy {
         // 2) 依据 min/target/max 打包成 chunk（只在块边界切分）
         List<int[]> ranges = packBlocksToChunks(blocks, text.length(), effectiveMin, effectiveTarget, effectiveMax);
 
-        // 3)（可选）加入重叠：为保持 "只在块边界切分"，这里不在中间加重叠，若开启 overlap，仅复制 "上一 chunk 的尾部全文子串" 到下一 chunk 的开头
+        // 3)（可选）加入重叠：为保持 "只在块边界切分"，这里不在中间加重叠，若开启 overlap，仅复制 "上一 chunk 的尾部全文子串"  到下一 chunk 的开头
         List<VectorChunk> out = materialize(text, ranges, effectiveOverlap);
 
         // 编号从 0 递增
@@ -201,7 +201,7 @@ public class StructureAwareTextChunker implements ChunkingStrategy {
         return coalesceTrailingBlanks(blocks, text);
     }
 
-    // 合并 "块尾部的若干空行" 到块内部，避免单独产生空白块（保持原文不变，只是归属到前块）
+    // 合并 "块尾部的若干空行"  到块内部，避免单独产生空白块（保持原文不变，只是归属到前块）
     private List<Block> coalesceTrailingBlanks(List<Block> blocks, String text) {
         if (blocks.isEmpty()) return blocks;
         List<Block> out = new ArrayList<>();
@@ -240,7 +240,7 @@ public class StructureAwareTextChunker implements ChunkingStrategy {
                     size = afterAdd;
                     j++;
                 } else {
-                    // 超过 max：若当前 size < min，则“忍一次超限”，把这个块也吸进去（保证不要太小）
+                    // 超过 max：若当前 size < min，则 "忍一次超限"，把这个块也吸进去（保证不要太小）
                     if (size < min) {
                         chunkEnd = b.end;
                         size = afterAdd;

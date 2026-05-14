@@ -41,11 +41,12 @@ public class PromptTemplateLoader {
 
     private final ResourceLoader resourceLoader;
     private final Map<String, String> cache = new ConcurrentHashMap<>();
+    private final Map<String, Map<String, String>> sectionCache = new ConcurrentHashMap<>();
 
     /**
      * 加载指定路径的提示模板
      *
-     * @param path 模板文件路径，支持 classpath: 前缀
+     * @param path 模板文件路径，支持 classpath:前缀
      * @return 模板内容字符串
      * @throws IllegalArgumentException 当路径为空时抛出
      * @throws IllegalStateException    当模板文件不存在或读取失败时抛出
@@ -66,6 +67,40 @@ public class PromptTemplateLoader {
      */
     public String render(String path, Map<String, String> slots) {
         String template = load(path);
+        String filled = PromptTemplateUtils.fillSlots(template, slots);
+        return PromptTemplateUtils.cleanupPrompt(filled);
+    }
+
+    /**
+     * 加载模板文件中指定 section 的原始内容
+     *
+     * @param path    模板文件路径
+     * @param section section 名称（对应 {@code --- section: name ---} 中的 name）
+     * @return section 的原始模板内容
+     * @throws IllegalStateException 当 section 不存在时抛出
+     */
+    public String loadSection(String path, String section) {
+        Map<String, String> sections = sectionCache.computeIfAbsent(path, p -> {
+            String content = load(p);
+            return PromptTemplateUtils.parseSections(content);
+        });
+        String template = sections.get(section);
+        if (template == null) {
+            throw new IllegalStateException("模板 section 不存在：" + path + " -> " + section);
+        }
+        return template;
+    }
+
+    /**
+     * 渲染模板文件中指定 section，并填充占位符
+     *
+     * @param path    模板文件路径
+     * @param section section 名称
+     * @param slots   占位符映射表
+     * @return 渲染后的文本
+     */
+    public String renderSection(String path, String section, Map<String, String> slots) {
+        String template = loadSection(path, section);
         String filled = PromptTemplateUtils.fillSlots(template, slots);
         return PromptTemplateUtils.cleanupPrompt(filled);
     }

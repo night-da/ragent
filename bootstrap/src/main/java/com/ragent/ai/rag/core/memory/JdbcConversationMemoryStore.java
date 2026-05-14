@@ -20,12 +20,12 @@ package com.ragent.ai.rag.core.memory;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.ragent.ai.rag.config.MemoryProperties;
-import com.ragent.ai.rag.controller.request.ConversationCreateRequest;
 import com.ragent.ai.rag.controller.vo.ConversationMessageVO;
 import com.ragent.ai.framework.convention.ChatMessage;
 import com.ragent.ai.rag.enums.ConversationMessageOrder;
 import com.ragent.ai.rag.service.ConversationMessageService;
 import com.ragent.ai.rag.service.ConversationService;
+import com.ragent.ai.rag.service.bo.ConversationCreateBO;
 import com.ragent.ai.rag.service.bo.ConversationMessageBO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -84,7 +84,7 @@ public class JdbcConversationMemoryStore implements ConversationMemoryStore {
         String messageId = conversationMessageService.addMessage(conversationMessage);
 
         if (message.getRole() == ChatMessage.Role.USER) {
-            ConversationCreateRequest conversation = ConversationCreateRequest.builder()
+            ConversationCreateBO conversation = ConversationCreateBO.builder()
                     .conversationId(conversationId)
                     .userId(userId)
                     .question(message.getContent())
@@ -106,9 +106,7 @@ public class JdbcConversationMemoryStore implements ConversationMemoryStore {
         }
         return new ChatMessage(
                 ChatMessage.Role.fromString(record.getRole()),
-                record.getContent(),
-                record.getThinkingContent(),
-                record.getThinkingDuration()
+                record.getContent()
         );
     }
 
@@ -116,20 +114,14 @@ public class JdbcConversationMemoryStore implements ConversationMemoryStore {
         if (messages == null || messages.isEmpty()) {
             return List.of();
         }
-        List<ChatMessage> cleaned = messages.stream()
-                .filter(this::isHistoryMessage)
-                .toList();
-        if (cleaned.isEmpty()) {
-            return List.of();
-        }
         int start = 0;
-        while (start < cleaned.size() && cleaned.get(start).getRole() == ChatMessage.Role.ASSISTANT) {
+        while (start < messages.size() && messages.get(start).getRole() == ChatMessage.Role.ASSISTANT) {
             start++;
         }
-        if (start >= cleaned.size()) {
+        if (start >= messages.size()) {
             return List.of();
         }
-        return cleaned.subList(start, cleaned.size());
+        return messages.subList(start, messages.size());
     }
 
     private boolean isHistoryMessage(ChatMessage message) {

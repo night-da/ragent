@@ -191,7 +191,7 @@ public class DefaultIntentClassifier implements IntentClassifier, IntentNodeRegi
             // 降序排序
             scores.sort(Comparator.comparingDouble(NodeScore::getScore).reversed());
 
-            log.info("当前问题：{}\n意图识别树如下所示：{}\n",
+            log.info("当前问题：{}\n 意图识别树如下所示：{}\n",
                     question,
                     JSONUtil.toJsonPrettyStr(
                             scores.stream().peek(each -> {
@@ -224,7 +224,7 @@ public class DefaultIntentClassifier implements IntentClassifier, IntentNodeRegi
      * 构造给 LLM 的 Prompt：
      * - 列出所有【叶子节点】的 id / 路径 / 描述 / 示例问题
      * - 要求 LLM 只在这些 id 中选择，输出 JSON 数组：[{"id": "...", "score": 0.9, "reason": "..."}]
-     * - 特别强调：如果问题里只提到 "OA 系统"，不要选 "保险系统" 的分类
+     * - 特别强调：如果问题里只提到 "OA 系统"，不要选 "保险系统"   的分类
      * - 如果存在 MCP 类型节点，使用增强版 Prompt 并添加 type/toolId 标识
      */
     private String buildPrompt(List<IntentNode> leafNodes) {
@@ -262,10 +262,11 @@ public class DefaultIntentClassifier implements IntentClassifier, IntentNodeRegi
     }
 
     private List<IntentNode> loadIntentTreeFromDB() {
-        // 1. 查出所有未删除节点（扁平结构）
+        // 1. 查出所有未删除且已启用的节点（扁平结构）
         List<IntentNodeDO> intentNodeDOList = intentNodeMapper.selectList(
                 Wrappers.lambdaQuery(IntentNodeDO.class)
                         .eq(IntentNodeDO::getDeleted, 0)
+                        .eq(IntentNodeDO::getEnabled, 1)
         );
 
         if (intentNodeDOList.isEmpty()) {

@@ -20,6 +20,7 @@ package com.ragent.ai.rag.controller;
 import com.ragent.ai.framework.convention.Result;
 import com.ragent.ai.framework.idempotent.IdempotentSubmit;
 import com.ragent.ai.framework.web.Results;
+import com.ragent.ai.rag.config.RAGDefaultProperties;
 import com.ragent.ai.rag.service.RAGChatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,6 +38,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class RAGChatController {
 
     private final RAGChatService ragChatService;
+    private final RAGDefaultProperties ragDefaultProperties;
 
     /**
      * 发起 SSE 流式对话
@@ -49,7 +51,7 @@ public class RAGChatController {
     public SseEmitter chat(@RequestParam String question,
                            @RequestParam(required = false) String conversationId,
                            @RequestParam(required = false, defaultValue = "false") Boolean deepThinking) {
-        SseEmitter emitter = new SseEmitter(0L);
+        SseEmitter emitter = new SseEmitter(ragDefaultProperties.getSseTimeoutMs());
         ragChatService.streamChat(question, conversationId, deepThinking, emitter);
         return emitter;
     }

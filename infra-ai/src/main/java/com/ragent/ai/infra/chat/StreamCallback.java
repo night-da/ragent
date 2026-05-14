@@ -60,6 +60,7 @@ public interface StreamCallback {
      * @param content 当前推送的思考内容
      */
     default void onThinking(String content) {
+
     }
 
     /**

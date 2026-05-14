@@ -31,6 +31,7 @@ import java.util.Date;
 public final class CronScheduleHelper {
 
     private CronScheduleHelper() {
+
     }
 
     public static Date nextRunTime(String cron, Date from) {

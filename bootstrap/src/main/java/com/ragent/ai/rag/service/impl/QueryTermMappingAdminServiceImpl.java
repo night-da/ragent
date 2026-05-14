@@ -27,7 +27,7 @@ import com.ragent.ai.rag.controller.request.QueryTermMappingCreateRequest;
 import com.ragent.ai.rag.controller.request.QueryTermMappingPageRequest;
 import com.ragent.ai.rag.controller.request.QueryTermMappingUpdateRequest;
 import com.ragent.ai.rag.controller.vo.QueryTermMappingVO;
-import com.ragent.ai.rag.core.rewrite.QueryTermMappingService;
+import com.ragent.ai.rag.core.rewrite.QueryTermMappingCacheManager;
 import com.ragent.ai.rag.dao.entity.QueryTermMappingDO;
 import com.ragent.ai.rag.dao.mapper.QueryTermMappingMapper;
 import com.ragent.ai.rag.service.QueryTermMappingAdminService;
@@ -39,7 +39,7 @@ import org.springframework.stereotype.Service;
 public class QueryTermMappingAdminServiceImpl implements QueryTermMappingAdminService {
 
     private final QueryTermMappingMapper queryTermMappingMapper;
-    private final QueryTermMappingService queryTermMappingService;
+    private final QueryTermMappingCacheManager queryTermMappingCacheManager;
 
     @Override
     public String create(QueryTermMappingCreateRequest requestParam) {
@@ -58,7 +58,7 @@ public class QueryTermMappingAdminServiceImpl implements QueryTermMappingAdminSe
         record.setRemark(StrUtil.trimToNull(requestParam.getRemark()));
 
         queryTermMappingMapper.insert(record);
-        queryTermMappingService.loadMappings();
+        queryTermMappingCacheManager.clearCache();
         return String.valueOf(record.getId());
     }
 
@@ -91,14 +91,14 @@ public class QueryTermMappingAdminServiceImpl implements QueryTermMappingAdminSe
         }
 
         queryTermMappingMapper.updateById(record);
-        queryTermMappingService.loadMappings();
+        queryTermMappingCacheManager.clearCache();
     }
 
     @Override
     public void delete(String id) {
         QueryTermMappingDO record = loadById(id);
         queryTermMappingMapper.deleteById(record.getId());
-        queryTermMappingService.loadMappings();
+        queryTermMappingCacheManager.clearCache();
     }
 
     @Override

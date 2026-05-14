@@ -17,8 +17,6 @@
 
 package com.ragent.ai.framework.web;
 
-import com.ragent.ai.framework.errorcode.BaseErrorCode;
-import com.ragent.ai.framework.exception.ServiceException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -49,6 +47,9 @@ public class SseEmitterSender {
      */
     public SseEmitterSender(SseEmitter emitter) {
         this.emitter = emitter;
+        emitter.onCompletion(() -> closed.set(true));
+        emitter.onTimeout(() -> closed.set(true));
+        emitter.onError(e -> closed.set(true));
     }
 
     /**
@@ -62,22 +63,18 @@ public class SseEmitterSender {
      *
      * @param eventName 事件名称，为 null 时使用默认格式
      * @param data      要发送的数据内容
-     * @throws ServiceException 当连接已关闭或发送失败时抛出
      */
     public void sendEvent(String eventName, Object data) {
-        // 检查连接是否已关闭
         if (closed.get()) {
-            throw new ServiceException("SSE already closed", BaseErrorCode.SERVICE_ERROR);
+            return;
         }
         try {
-            // 根据是否指定事件名称选择不同的发送方式
             if (eventName == null) {
                 emitter.send(data);
                 return;
             }
             emitter.send(SseEmitter.event().name(eventName).data(data));
         } catch (Exception e) {
-            // 发送失败时，关闭连接并通知失败
             fail(e);
         }
     }

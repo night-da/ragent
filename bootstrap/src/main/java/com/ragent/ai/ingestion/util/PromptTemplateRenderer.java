@@ -25,6 +25,7 @@ import java.util.Map;
 public final class PromptTemplateRenderer {
 
     private PromptTemplateRenderer() {
+
     }
 
     public static String render(String template, Map<String, Object> variables) {

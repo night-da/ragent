@@ -27,6 +27,7 @@ public final class MimeTypeDetector {
     private static final Tika TIKA = new Tika();
 
     private MimeTypeDetector() {
+
     }
 
     public static String detect(byte[] bytes, String fileName) {

@@ -41,7 +41,7 @@ public class RAGConstant {
     /**
      * 意图识别最低分数阈值
      * <p>
-     * 低于这个分数就当成"聊偏了"，不参与 RAG 检索流程
+     * 低于这个分数就当成 "聊偏了"，不参与 RAG 检索流程
      * </p>
      */
     public static final double INTENT_MIN_SCORE = 0.35;
@@ -51,31 +51,6 @@ public class RAGConstant {
      * 防止拉取过多 Collection 导致性能问题
      */
     public static final int MAX_INTENT_COUNT = 3;
-
-    /**
-     * Rerank 分数过滤的边际比率（相对于最高分）
-     */
-    public static final double SCORE_MARGIN_RATIO = 0.75;
-
-    /**
-     * 默认返回的 TopK
-     */
-    public static final int DEFAULT_TOP_K = 10;
-
-    /**
-     * 检索时的 TopK 扩展倍数
-     */
-    public static final int SEARCH_TOP_K_MULTIPLIER = 3;
-
-    /**
-     * 检索时的最小 TopK
-     */
-    public static final int MIN_SEARCH_TOP_K = 20;
-
-    /**
-     * Rerank 限制倍数
-     */
-    public static final int RERANK_LIMIT_MULTIPLIER = 2;
 
     /**
      * 多通道检索占位符键
@@ -99,8 +74,14 @@ public class RAGConstant {
     public static final String GUIDANCE_PROMPT_PATH = "prompt/guidance-prompt.st";
 
     /**
+     * 歧义确认提示词模板路径
+     * 用于边界 case 时调 LLM 二次确认是否存在品类歧义
+     */
+    public static final String GUIDANCE_AMBIGUITY_CHECK_PROMPT_PATH = "prompt/guidance-ambiguity-check.st";
+
+    /**
      * 系统对话提示词模板路径
-     * 定义企业知识助手「小码」的角色设定和对话规则，包括打招呼、自我介绍、问题分类处理等场景。模板通过 {@code {question}} 占位符接收用户问题。
+     * 定义企业知识助手 "小码"  的角色设定和对话规则，包括打招呼、自我介绍、问题分类处理等场景。模板通过 {@code {question}} 占位符接收用户问题。
      */
     public static final String CHAT_SYSTEM_PROMPT_PATH = "prompt/answer-chat-system.st";
 
@@ -135,6 +116,12 @@ public class RAGConstant {
     public static final String MCP_PARAMETER_EXTRACT_PROMPT_PATH = "prompt/mcp-parameter-extract.st";
 
     /**
+     * MCP 工具参数提取用户消息提示词模板路径
+     * 用于构建包含工具定义和用户问题的用户消息，通过 {@code {tool_definition}} 和 {@code {user_question}} 占位符注入内容
+     */
+    public static final String MCP_PARAMETER_EXTRACT_USER_PROMPT_PATH = "prompt/mcp-parameter-extract-user.st";
+
+    /**
      * MCP-only 场景提示词模板路径
      * 仅动态数据片段时使用
      */
@@ -145,4 +132,14 @@ public class RAGConstant {
      * 兼顾动态数据片段与知识库内容的综合回答
      */
     public static final String MCP_KB_MIXED_PROMPT_PATH = "prompt/answer-chat-mcp-kb-mixed.st";
+
+    // ==================== 上下文格式化模板（单文件多 section） ====================
+
+    /**
+     * 上下文格式化模板文件路径
+     * <p>
+     * 包含所有上下文格式化所需的 section，通过 {@code --- section: name ---} 分隔，
+     * 使用 {@code PromptTemplateLoader.renderSection(path, section, slots)} 渲染
+     */
+    public static final String CONTEXT_FORMAT_PATH = "prompt/context-format.st";
 }

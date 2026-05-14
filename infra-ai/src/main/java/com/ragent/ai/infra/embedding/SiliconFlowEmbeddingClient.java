@@ -24,8 +24,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class SiliconFlowEmbeddingClient extends AbstractOpenAIStyleEmbeddingClient {
 
-    public SiliconFlowEmbeddingClient(OkHttpClient httpClient) {
-        super(httpClient);
+    public SiliconFlowEmbeddingClient(OkHttpClient syncHttpClient) {
+        super(syncHttpClient);
     }
 
     @Override

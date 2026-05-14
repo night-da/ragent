@@ -35,7 +35,7 @@ import java.util.List;
  * - 相邻 chunk 保留 overlapSize 重叠
  * - 在边界符（换行/句末标点等）处向前对齐 end
  * 增强：
- * 1) 归一化：修复 URL 内“被换行拆开”的情况，但避免误吞段落换行/列表换行
+ * 1) 归一化：修复 URL 内 "被换行拆开" 的情况，但避免误吞段落换行/列表换行
  * 2) 英文 '.' 不再无条件当边界，避免切烂 URL 域名
  * 3) 边界回退距离 <= overlap（避免出现 chunk 几乎全重复）
  */
@@ -158,10 +158,10 @@ public class FixedSizeTextChunker implements ChunkingStrategy {
     /**
      * 归一化输入：
      * - 去掉 \r
-     * - 修复“URL 被换行拆开”的情况（比如 dingtalk.\ncom、/i/nodes\n/...）
-     * - 但如果换行后是“2.” 这种列表项开头，绝不合并（避免吞段落）
+     * - 修复 "URL 被换行拆开"  的情况（比如 dingtalk.\ncom、/i/nodes\n/...）
+     * - 但如果换行后是 "2."   这种列表项开头，绝不合并（避免吞段落）
      * - URL 结束时保留原始空白（包括空行）
-     * - 修复中文词中间软换行（商\n保通 -> 商保通）
+     * - 修复中文词中间软换行（商\n 保通 -> 商保通）
      */
     private String normalizeText(String text) {
         if (text == null || text.isEmpty()) return text;
@@ -190,7 +190,7 @@ public class FixedSizeTextChunker implements ChunkingStrategy {
                     char prev = (i > 0) ? src.charAt(i - 1) : 0;
                     char next = (j < src.length()) ? src.charAt(j) : 0;
 
-                    // 只在 "很像 URL 被拆开" 的情况下合并空白
+                    // 只在 "很像 URL 被拆开"  的情况下合并空白
                     if (sawNewline && next != 0 && shouldJoinBrokenUrl(prev, next, src, j)) {
                         i = j - 1;
                         continue;
@@ -212,7 +212,7 @@ public class FixedSizeTextChunker implements ChunkingStrategy {
                 continue;
             }
 
-            // 非 URL 状态：修复中文词中间软换行（商\n保通 -> 商保通）
+            // 非 URL 状态：修复中文词中间软换行（商\n 保通 -> 商保通）
             if (c == '\n') {
                 char prev = (i > 0) ? src.charAt(i - 1) : 0;
                 char next = (i + 1 < src.length()) ? src.charAt(i + 1) : 0;
@@ -233,10 +233,10 @@ public class FixedSizeTextChunker implements ChunkingStrategy {
 
     /**
      * 判断：URL 内遇到换行/空白时，是否应该把空白删掉并继续拼接 URL
-     * 关键：避免把 “\n2.”（列表项）吞掉。
+     * 关键：避免把 "\n2."（列表项）吞掉。
      */
     private boolean shouldJoinBrokenUrl(char prev, char next, String s, int nextIndex) {
-        // 如果下一行像 “2.” “10.” 这种列表项开头 -> 绝不合并
+        // 如果下一行像 "2." "10."   这种列表项开头 -> 绝不合并
         if (isListItemStart(s, nextIndex)) {
             return false;
         }
@@ -315,6 +315,6 @@ public class FixedSizeTextChunker implements ChunkingStrategy {
                 || block == Character.UnicodeBlock.GENERAL_PUNCTUATION
                 || c == '。' || c == '，' || c == '、' || c == '；' || c == '：'
                 || c == '！' || c == '？' || c == '（' || c == '）' || c == '【' || c == '】'
-                || c == '《' || c == '》' || c == '“' || c == '”' || c == '‘' || c == '’';
+                || c == '《' || c == '》' || c == '\u201c' || c == '\u201d' || c == '\u2018' || c == '\u2019';
     }
 }

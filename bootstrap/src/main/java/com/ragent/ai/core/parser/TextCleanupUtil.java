@@ -25,6 +25,7 @@ package com.ragent.ai.core.parser;
 public final class TextCleanupUtil {
 
     private TextCleanupUtil() {
+
     }
 
     /**

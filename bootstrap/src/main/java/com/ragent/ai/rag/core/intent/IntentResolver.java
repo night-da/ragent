@@ -18,14 +18,13 @@
 package com.ragent.ai.rag.core.intent;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.util.StrUtil;
 import com.ragent.ai.rag.dto.IntentCandidate;
 import com.ragent.ai.rag.dto.IntentGroup;
 import com.ragent.ai.rag.dto.SubQuestionIntent;
-import com.ragent.ai.rag.enums.IntentKind;
 import com.ragent.ai.framework.trace.RagTraceNode;
 import com.ragent.ai.rag.core.rewrite.RewriteResult;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -33,20 +32,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
 import java.util.concurrent.Executor;
 
 import static com.ragent.ai.rag.constant.RAGConstant.INTENT_MIN_SCORE;
 import static com.ragent.ai.rag.constant.RAGConstant.MAX_INTENT_COUNT;
 import static com.ragent.ai.rag.enums.IntentKind.SYSTEM;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class IntentResolver {
 
     @Qualifier("defaultIntentClassifier")
     private final IntentClassifier intentClassifier;
-    @Qualifier("intentClassifyThreadPoolExecutor")
     private final Executor intentClassifyExecutor;
 
     @RagTraceNode(name = "intent-resolve", type = "INTENT")
@@ -56,7 +55,14 @@ public class IntentResolver {
                 : List.of(rewriteResult.rewrittenQuestion());
         List<CompletableFuture<SubQuestionIntent>> tasks = subQuestions.stream()
                 .map(q -> CompletableFuture.supplyAsync(
-                        () -> new SubQuestionIntent(q, classifyIntents(q)),
+                        () -> {
+                            try {
+                                return new SubQuestionIntent(q, classifyIntents(q));
+                            } catch (Exception e) {
+                                log.error("子问题意图分类失败，降级为空意图，question：{}", q, e);
+                                return new SubQuestionIntent(q, List.of());
+                            }
+                        },
                         intentClassifyExecutor
                 ))
                 .toList();
@@ -70,8 +76,8 @@ public class IntentResolver {
         List<NodeScore> mcpIntents = new ArrayList<>();
         List<NodeScore> kbIntents = new ArrayList<>();
         for (SubQuestionIntent si : subIntents) {
-            mcpIntents.addAll(filterMcpIntents(si.nodeScores()));
-            kbIntents.addAll(filterKbIntents(si.nodeScores()));
+            mcpIntents.addAll(NodeScoreFilters.mcp(si.nodeScores()));
+            kbIntents.addAll(NodeScoreFilters.kb(si.nodeScores()));
         }
         return new IntentGroup(mcpIntents, kbIntents);
     }
@@ -87,25 +93,6 @@ public class IntentResolver {
         return scores.stream()
                 .filter(ns -> ns.getScore() >= INTENT_MIN_SCORE)
                 .limit(MAX_INTENT_COUNT)
-                .toList();
-    }
-
-    private List<NodeScore> filterMcpIntents(List<NodeScore> nodeScores) {
-        return nodeScores.stream()
-                .filter(ns -> ns.getNode() != null && ns.getNode().getKind() == IntentKind.MCP)
-                .filter(ns -> StrUtil.isNotBlank(ns.getNode().getMcpToolId()))
-                .toList();
-    }
-
-    private List<NodeScore> filterKbIntents(List<NodeScore> nodeScores) {
-        return nodeScores.stream()
-                .filter(ns -> {
-                    IntentNode node = ns.getNode();
-                    if (node == null) {
-                        return false;
-                    }
-                    return node.getKind() == null || node.getKind() == IntentKind.KB;
-                })
                 .toList();
     }
 
@@ -218,7 +205,7 @@ public class IntentResolver {
         allSelected.addAll(additionalIntents);
 
         // 按子问题索引分组
-        Map<Integer, List<NodeScore>> groupedByIndex = new ConcurrentHashMap<>();
+        Map<Integer, List<NodeScore>> groupedByIndex = new HashMap<>();
         for (IntentCandidate candidate : allSelected) {
             groupedByIndex.computeIfAbsent(candidate.subQuestionIndex(), k -> new ArrayList<>())
                     .add(candidate.nodeScore());

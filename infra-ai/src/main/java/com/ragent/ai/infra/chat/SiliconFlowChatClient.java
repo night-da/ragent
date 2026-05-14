@@ -31,8 +31,10 @@ import java.util.concurrent.Executor;
 @Service
 public class SiliconFlowChatClient extends AbstractOpenAIStyleChatClient {
 
-    public SiliconFlowChatClient(OkHttpClient httpClient, Executor modelStreamExecutor) {
-        super(httpClient, modelStreamExecutor);
+    public SiliconFlowChatClient(OkHttpClient syncHttpClient,
+                                 OkHttpClient streamingHttpClient,
+                                 Executor modelStreamExecutor) {
+        super(syncHttpClient, streamingHttpClient, modelStreamExecutor);
     }
 
     @Override

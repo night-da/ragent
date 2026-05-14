@@ -69,4 +69,11 @@ public class RAGDefaultProperties {
      * </ul>
      */
     private String metricType;
+
+    /**
+     * SSE 全局超时时间（毫秒）
+     * <p>
+     * 兜底防止 SSE 连接泄漏，超时后自动关闭连接。默认 5 分钟
+     */
+    private Long sseTimeoutMs = 5 * 60 * 1000L;
 }

@@ -458,7 +458,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                 ChunkingMode chunkingMode = ChunkingMode.fromValue(requestParam.getChunkStrategy());
                 String chunkConfig = validateAndNormalizeChunkConfig(chunkingMode, requestParam.getChunkConfig());
                 updateWrapper.set(KnowledgeDocumentDO::getChunkStrategy, chunkingMode.getValue());
-                updateWrapper.set(KnowledgeDocumentDO::getChunkConfig, chunkConfig);
+                updateWrapper.setSql("chunk_config = CAST({0} AS jsonb)", chunkConfig);
                 updateWrapper.set(KnowledgeDocumentDO::getPipelineId, null);
             } else {
                 if (!StringUtils.hasText(requestParam.getPipelineId())) {
@@ -770,6 +770,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         Map<String, Object> config;
         try {
             config = objectMapper.readValue(json, new TypeReference<>() {
+
             });
         } catch (Exception e) {
             throw new ClientException("分块参数 JSON 格式不合法");
@@ -788,6 +789,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         }
         try {
             return objectMapper.readValue(json, new TypeReference<>() {
+
             });
         } catch (Exception e) {
             log.warn("分块参数解析失败: {}", json, e);

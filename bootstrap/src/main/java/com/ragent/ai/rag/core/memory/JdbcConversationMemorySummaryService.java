@@ -19,13 +19,13 @@ package com.ragent.ai.rag.core.memory;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import com.ragent.ai.rag.config.MemoryProperties;
-import com.ragent.ai.rag.dao.entity.ConversationMessageDO;
-import com.ragent.ai.rag.dao.entity.ConversationSummaryDO;
 import com.ragent.ai.framework.convention.ChatMessage;
 import com.ragent.ai.framework.convention.ChatRequest;
 import com.ragent.ai.infra.chat.LLMService;
+import com.ragent.ai.rag.config.MemoryProperties;
 import com.ragent.ai.rag.core.prompt.PromptTemplateLoader;
+import com.ragent.ai.rag.dao.entity.ConversationMessageDO;
+import com.ragent.ai.rag.dao.entity.ConversationSummaryDO;
 import com.ragent.ai.rag.service.ConversationGroupService;
 import com.ragent.ai.rag.service.ConversationMessageService;
 import com.ragent.ai.rag.service.bo.ConversationSummaryBO;
@@ -33,10 +33,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -44,9 +42,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static com.ragent.ai.rag.constant.RAGConstant.CONTEXT_FORMAT_PATH;
 import static com.ragent.ai.rag.constant.RAGConstant.CONVERSATION_SUMMARY_PROMPT_PATH;
 
 @Slf4j
@@ -54,9 +52,7 @@ import static com.ragent.ai.rag.constant.RAGConstant.CONVERSATION_SUMMARY_PROMPT
 @RequiredArgsConstructor
 public class JdbcConversationMemorySummaryService implements ConversationMemorySummaryService {
 
-    private static final String SUMMARY_PREFIX = "对话摘要：";
     private static final String SUMMARY_LOCK_PREFIX = "ragent:memory:summary:lock:";
-    private static final Duration SUMMARY_LOCK_TTL = Duration.ofMinutes(5);
 
     private final ConversationGroupService conversationGroupService;
     private final ConversationMessageService conversationMessageService;
@@ -64,8 +60,6 @@ public class JdbcConversationMemorySummaryService implements ConversationMemoryS
     private final LLMService llmService;
     private final PromptTemplateLoader promptTemplateLoader;
     private final RedissonClient redissonClient;
-
-    @Qualifier("memorySummaryThreadPoolExecutor")
     private final Executor memorySummaryExecutor;
 
     @Override
@@ -95,12 +89,11 @@ public class JdbcConversationMemorySummaryService implements ConversationMemoryS
         if (summary == null || StrUtil.isBlank(summary.getContent())) {
             return summary;
         }
-
-        String content = summary.getContent().trim();
-        if (content.startsWith(SUMMARY_PREFIX) || content.startsWith("摘要：")) {
-            return summary;
-        }
-        return ChatMessage.system(SUMMARY_PREFIX + content);
+        String wrapped = promptTemplateLoader.renderSection(
+                CONTEXT_FORMAT_PATH, "summary-wrapper",
+                Map.of("content", summary.getContent().trim())
+        );
+        return ChatMessage.system(wrapped);
     }
 
     private void doCompressIfNeeded(String conversationId, String userId) {
@@ -113,7 +106,7 @@ public class JdbcConversationMemorySummaryService implements ConversationMemoryS
 
         String lockKey = SUMMARY_LOCK_PREFIX + buildLockKey(conversationId, userId);
         RLock lock = redissonClient.getLock(lockKey);
-        if (!tryLock(lock)) {
+        if (!lock.tryLock()) {
             return;
         }
         try {
@@ -172,15 +165,6 @@ public class JdbcConversationMemorySummaryService implements ConversationMemoryS
             if (lock.isHeldByCurrentThread()) {
                 lock.unlock();
             }
-        }
-    }
-
-    private boolean tryLock(RLock lock) {
-        try {
-            return lock.tryLock(0, SUMMARY_LOCK_TTL.toMillis(), TimeUnit.MILLISECONDS);
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            return false;
         }
     }
 

@@ -56,6 +56,7 @@ public final class EnhancerPromptManager {
     }
 
     private EnhancerPromptManager() {
+
     }
 
     public static String systemPrompt(EnhanceType type) {

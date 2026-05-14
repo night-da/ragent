@@ -17,18 +17,19 @@
 
   <properties>
     <java.version>17</java.version>
-    <okhttp.version>4.12.0</okhttp.version>
     <spring-boot.version>3.5.7</spring-boot.version>
-    <milvus-sdk.version>2.6.6</milvus-sdk.version>
     <tika.version>3.2.3</tika.version>
-    <hutool-all.version>5.8.37</hutool-all.version>
     <mockito-core.version>5.20.0</mockito-core.version>
-    <sa-token.version>1.43.0</sa-token.version>
-    <ttl.version>2.14.5</ttl.version>
-    <mybatis-plus.version>3.5.14</mybatis-plus.version>
-    <rocketmq-spring.version>2.3.5</rocketmq-spring.version>
     <redisson.version>4.0.0</redisson.version>
-    <aws.sdk.version>2.40.2</aws.sdk.version>
+    <rocketmq-spring.version>2.3.5</rocketmq-spring.version>
+    <milvus-sdk.version>2.6.6</milvus-sdk.version>
+    <hutool-all.version>5.8.37</hutool-all.version>
+    <sa-token.version>1.43.0</sa-token.version>
+    <mybatis-plus.version>3.5.14</mybatis-plus.version>
+    <ttl.version>2.14.5</ttl.version>
+    <okhttp.version>4.12.0</okhttp.version>
+    <aws-sdk.version>2.40.2</aws-sdk.version>
+    <mcp-sdk.version>1.1.2</mcp-sdk.version>
   </properties>
 
   <modules>
@@ -82,6 +83,18 @@
       </dependency>
 
       <dependency>
+          <groupId>io.modelcontextprotocol.sdk</groupId>
+          <artifactId>mcp</artifactId>
+          <version>${mcp-sdk.version}</version>
+      </dependency>
+
+      <dependency>
+          <groupId>io.modelcontextprotocol.sdk</groupId>
+          <artifactId>mcp-json-jackson2</artifactId>
+          <version>${mcp-sdk.version}</version>
+      </dependency>
+
+      <dependency>
         <groupId>cn.hutool</groupId>
         <artifactId>hutool-all</artifactId>
         <version>${hutool-all.version}</version>
@@ -126,7 +139,7 @@
       <dependency>
         <groupId>software.amazon.awssdk</groupId>
         <artifactId>s3</artifactId>
-        <version>${aws.sdk.version}</version>
+        <version>${aws-sdk.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

@@ -98,3 +98,4 @@ public interface RetrieverService {
      */
     List<RetrievedChunk> retrieveByVector(float[] vector, RetrieveRequest retrieveParam);
 }
+

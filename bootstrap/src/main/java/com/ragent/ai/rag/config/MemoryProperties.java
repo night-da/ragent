@@ -45,11 +45,6 @@ public class MemoryProperties {
     private Integer historyKeepTurns = 8;
 
     /**
-     * 缓存过期时间（分钟）
-     */
-    private Integer ttlMinutes = 60;
-
-    /**
      * 是否启用对话记忆压缩
      */
     private Boolean summaryEnabled = false;

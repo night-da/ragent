@@ -29,10 +29,12 @@ import com.ragent.ai.framework.web.SseEmitterSender;
 import com.ragent.ai.infra.chat.StreamCallback;
 import com.ragent.ai.infra.config.AIModelProperties;
 import com.ragent.ai.rag.core.memory.ConversationMemoryService;
+import lombok.extern.slf4j.Slf4j;
 import com.ragent.ai.rag.service.ConversationGroupService;
 
 import java.util.Optional;
 
+@Slf4j
 public class StreamChatEventHandler implements StreamCallback {
 
     private static final String TYPE_THINK = "think";
@@ -109,9 +111,13 @@ public class StreamChatEventHandler implements StreamCallback {
         String content = answer.toString();
         String messageId = null;
         if (StrUtil.isNotBlank(content)) {
-            String thinkingContent = thinking.isEmpty() ? null : thinking.toString();
-            ChatMessage message = ChatMessage.assistant(content, thinkingContent, resolveThinkingDuration());
-            messageId = memoryService.append(conversationId, userId, message);
+            try {
+                String thinkingContent = thinking.isEmpty() ? null : thinking.toString();
+                ChatMessage message = ChatMessage.assistant(content, thinkingContent, resolveThinkingDuration());
+                messageId = memoryService.append(conversationId, userId, message);
+            } catch (Exception e) {
+                log.error("取消时持久化消息失败，conversationId：{}", conversationId, e);
+            }
         }
         String title = resolveTitleForEvent();
         return new CompletionPayload(String.valueOf(messageId), title);
@@ -152,9 +158,14 @@ public class StreamChatEventHandler implements StreamCallback {
         if (taskManager.isCancelled(taskId)) {
             return;
         }
-        String thinkingContent = thinking.isEmpty() ? null : thinking.toString();
-        ChatMessage message = ChatMessage.assistant(answer.toString(), thinkingContent, resolveThinkingDuration());
-        String messageId = memoryService.append(conversationId, userId, message);
+        String messageId = null;
+        try {
+            String thinkingContent = thinking.isEmpty() ? null : thinking.toString();
+            ChatMessage message = ChatMessage.assistant(answer.toString(), thinkingContent, resolveThinkingDuration());
+            messageId = memoryService.append(conversationId, userId, message);
+        } catch (Exception e) {
+            log.error("对话完成时持久化消息失败，conversationId：{}", conversationId, e);
+        }
         String title = resolveTitleForEvent();
         String messageIdText = StrUtil.isBlank(messageId) ? null : messageId;
         sender.sendEvent(SSEEventType.FINISH.value(), new CompletionPayload(messageIdText, title));

@@ -37,6 +37,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -50,6 +51,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class BaiLianRerankClient implements RerankClient {
 
+    @Qualifier("syncHttpClient")
     private final OkHttpClient httpClient;
 
     @Override

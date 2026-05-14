@@ -130,6 +130,7 @@ public class EnricherNode implements IngestionNode {
                     chunk.getMetadata().put("summary", StringUtils.hasText(response) ? response.trim() : response);
             case METADATA -> chunk.getMetadata().putAll(JsonResponseParser.parseObject(response));
             default -> {
+
             }
         }
     }

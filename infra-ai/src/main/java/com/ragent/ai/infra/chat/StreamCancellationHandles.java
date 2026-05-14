@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class StreamCancellationHandles {
 
     private static final StreamCancellationHandle NOOP = () -> {
+
     };
 
     public static StreamCancellationHandle noop() {

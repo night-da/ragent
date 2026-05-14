@@ -80,3 +80,4 @@ public class KnowledgeBaseDO {
     @TableLogic
     private Integer deleted;
 }
+

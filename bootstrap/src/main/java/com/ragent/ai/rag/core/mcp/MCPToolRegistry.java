@@ -17,20 +17,22 @@
 
 package com.ragent.ai.rag.core.mcp;
 
+import io.modelcontextprotocol.spec.McpSchema.Tool;
+
 import java.util.List;
 import java.util.Optional;
 
 /**
  * MCP 工具注册表接口
  */
-public interface MCPToolRegistry {
+public interface McpToolRegistry {
 
     /**
      * 注册工具执行器
      *
      * @param executor 工具执行器
      */
-    void register(MCPToolExecutor executor);
+    void register(McpToolExecutor executor);
 
     /**
      * 注销工具
@@ -45,21 +47,21 @@ public interface MCPToolRegistry {
      * @param toolId 工具 ID
      * @return 工具执行器（可能不存在）
      */
-    Optional<MCPToolExecutor> getExecutor(String toolId);
+    Optional<McpToolExecutor> getExecutor(String toolId);
 
     /**
      * 获取所有已注册的工具定义
      *
      * @return 工具定义列表
      */
-    List<MCPTool> listAllTools();
+    List<Tool> listAllTools();
 
     /**
      * 获取所有已注册的工具执行器
      *
      * @return 执行器列表
      */
-    List<MCPToolExecutor> listAllExecutors();
+    List<McpToolExecutor> listAllExecutors();
 
     /**
      * 检查工具是否已注册

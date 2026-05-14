@@ -30,6 +30,11 @@ import org.springframework.stereotype.Component;
 public class SearchChannelProperties {
 
     /**
+     * 默认返回的 TopK
+     */
+    private int defaultTopK = 10;
+
+    /**
      * 检索通道配置
      */
     private Channels channels = new Channels();
@@ -61,6 +66,12 @@ public class SearchChannelProperties {
          * 当意图识别的最高分数低于此阈值时，启用全局检索
          */
         private double confidenceThreshold = 0.6;
+
+        /**
+         * 单意图补充检索阈值
+         * 当仅识别出一个意图且分数低于此阈值时，启用全局检索作为安全网
+         */
+        private double singleIntentSupplementThreshold = 0.8;
 
         /**
          * TopK 倍数

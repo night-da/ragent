@@ -31,6 +31,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static com.ragent.ai.rag.constant.RAGConstant.CONTEXT_FORMAT_PATH;
 import static com.ragent.ai.rag.constant.RAGConstant.MCP_KB_MIXED_PROMPT_PATH;
 import static com.ragent.ai.rag.constant.RAGConstant.MCP_ONLY_PROMPT_PATH;
 import static com.ragent.ai.rag.constant.RAGConstant.RAG_ENTERPRISE_PROMPT_PATH;
@@ -44,10 +48,7 @@ import static com.ragent.ai.rag.constant.RAGConstant.RAG_ENTERPRISE_PROMPT_PATH;
 @RequiredArgsConstructor
 public class RAGPromptService {
 
-    private static final String MCP_CONTEXT_HEADER = "## 动态数据片段";
-    private static final String KB_CONTEXT_HEADER = "## 文档内容";
-
-    private final PromptTemplateLoader promptTemplateLoader;
+    private final PromptTemplateLoader templateLoader;
 
     /**
      * 生成系统提示词，并对模板格式做清理
@@ -68,30 +69,24 @@ public class RAGPromptService {
                                                      String question,
                                                      List<String> subQuestions) {
         List<ChatMessage> messages = new ArrayList<>();
+
+        // 1. 系统提示词
         String systemPrompt = buildSystemPrompt(context);
         if (StrUtil.isNotBlank(systemPrompt)) {
             messages.add(ChatMessage.system(systemPrompt));
         }
-        if (StrUtil.isNotBlank(context.getMcpContext())) {
-            messages.add(ChatMessage.system(formatEvidence(MCP_CONTEXT_HEADER, context.getMcpContext())));
-        }
-        if (StrUtil.isNotBlank(context.getKbContext())) {
-            messages.add(ChatMessage.user(formatEvidence(KB_CONTEXT_HEADER, context.getKbContext())));
-        }
+
+        // 2. 对话历史（含摘要，摘要作为 history[0] 的 system message 自然紧跟系统提示词）
         if (CollUtil.isNotEmpty(history)) {
             messages.addAll(history);
         }
 
-        // 多子问题场景下，显式编号以降低模型漏答风险
-        if (CollUtil.isNotEmpty(subQuestions) && subQuestions.size() > 1) {
-            StringBuilder userMessage = new StringBuilder();
-            userMessage.append("请基于上述文档内容，回答以下问题：\n\n");
-            for (int i = 0; i < subQuestions.size(); i++) {
-                userMessage.append(i + 1).append(". ").append(subQuestions.get(i)).append("\n");
-            }
-            messages.add(ChatMessage.user(userMessage.toString().trim()));
-        } else if (StrUtil.isNotBlank(question)) {
-            messages.add(ChatMessage.user(question));
+        // 3. 证据 + 问题（合并为一条 user message）
+        String evidenceBody = buildEvidenceBody(context);
+        String userQuestion = buildUserQuestion(question, subQuestions);
+        String userContent = mergeEvidenceAndQuestion(evidenceBody, userQuestion);
+        if (StrUtil.isNotBlank(userContent)) {
+            messages.add(ChatMessage.user(userContent));
         }
 
         return messages;
@@ -188,15 +183,55 @@ public class RAGPromptService {
 
     private String defaultTemplate(PromptScene scene) {
         return switch (scene) {
-            case KB_ONLY -> promptTemplateLoader.load(RAG_ENTERPRISE_PROMPT_PATH);
-            case MCP_ONLY -> promptTemplateLoader.load(MCP_ONLY_PROMPT_PATH);
-            case MIXED -> promptTemplateLoader.load(MCP_KB_MIXED_PROMPT_PATH);
+            case KB_ONLY -> templateLoader.load(RAG_ENTERPRISE_PROMPT_PATH);
+            case MCP_ONLY -> templateLoader.load(MCP_ONLY_PROMPT_PATH);
+            case MIXED -> templateLoader.load(MCP_KB_MIXED_PROMPT_PATH);
             case EMPTY -> "";
         };
     }
 
-    private String formatEvidence(String header, String body) {
-        return header + "\n" + body.trim();
+    private String buildUserQuestion(String question, List<String> subQuestions) {
+        if (CollUtil.isNotEmpty(subQuestions) && subQuestions.size() > 1) {
+            String numbered = IntStream.range(0, subQuestions.size())
+                    .mapToObj(i -> (i + 1) + ". " + subQuestions.get(i))
+                    .collect(Collectors.joining("\n"));
+            return renderSection("multi-questions", Map.of("questions", numbered));
+        }
+        if (StrUtil.isBlank(question)) {
+            return "";
+        }
+        return renderSection("single-question", Map.of("question", question));
+    }
+
+    private String mergeEvidenceAndQuestion(String evidenceBody, String question) {
+        if (StrUtil.isBlank(evidenceBody)) {
+            return question;
+        }
+        if (StrUtil.isBlank(question)) {
+            return evidenceBody;
+        }
+        return evidenceBody + "\n\n" + question;
+    }
+
+    /**
+     * 将 MCP 和 KB 证据合并为一个文本块，各自有值时用对应 section 渲染
+     */
+    private String buildEvidenceBody(PromptContext context) {
+        StringBuilder sb = new StringBuilder();
+        if (StrUtil.isNotBlank(context.getMcpContext())) {
+            sb.append(renderSection("mcp-evidence", Map.of("body", context.getMcpContext().trim())));
+        }
+        if (StrUtil.isNotBlank(context.getKbContext())) {
+            if (!sb.isEmpty()) {
+                sb.append("\n\n");
+            }
+            sb.append(renderSection("kb-evidence", Map.of("body", context.getKbContext().trim())));
+        }
+        return sb.toString().trim();
+    }
+
+    private String renderSection(String section, Map<String, String> slots) {
+        return templateLoader.renderSection(CONTEXT_FORMAT_PATH, section, slots);
     }
 
     // === 工具方法 ===
@@ -209,5 +244,4 @@ public class RAGPromptService {
         if (StrUtil.isNotBlank(node.getId())) return node.getId();
         return String.valueOf(node.getId());
     }
-
 }

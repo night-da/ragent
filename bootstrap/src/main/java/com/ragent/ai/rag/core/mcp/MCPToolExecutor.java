@@ -17,38 +17,35 @@
 
 package com.ragent.ai.rag.core.mcp;
 
+import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
+import io.modelcontextprotocol.spec.McpSchema.Tool;
+
+import java.util.Map;
+
 /**
  * MCP 工具执行器接口
  */
-public interface MCPToolExecutor {
+public interface McpToolExecutor {
 
     /**
      * 获取工具定义
      *
-     * @return 工具元信息
+     * @return 工具元信息（使用官方 SDK 的 Tool）
      */
-    MCPTool getToolDefinition();
+    Tool getToolDefinition();
 
     /**
      * 执行工具调用
      *
-     * @param request MCP 请求
-     * @return MCP 响应
+     * @param parameters 调用参数
+     * @return 工具调用结果（使用官方 SDK 的 CallToolResult）
      */
-    MCPResponse execute(MCPRequest request);
+    CallToolResult execute(Map<String, Object> parameters);
 
     /**
      * 工具 ID（快捷方法）
      */
     default String getToolId() {
-        return getToolDefinition().getToolId();
-    }
-
-    /**
-     * 是否支持该请求
-     * 默认只检查 toolId 是否匹配
-     */
-    default boolean supports(MCPRequest request) {
-        return getToolId().equals(request.getToolId());
+        return getToolDefinition().name();
     }
 }

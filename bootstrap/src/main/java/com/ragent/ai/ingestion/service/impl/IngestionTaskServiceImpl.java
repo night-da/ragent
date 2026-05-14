@@ -394,6 +394,7 @@ public class IngestionTaskServiceImpl implements IngestionTaskService {
         }
         try {
             return objectMapper.readValue(raw, new TypeReference<List<NodeLog>>() {
+
             });
         } catch (Exception e) {
             return List.of();

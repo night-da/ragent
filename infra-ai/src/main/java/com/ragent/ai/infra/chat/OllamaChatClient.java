@@ -31,8 +31,10 @@ import java.util.concurrent.Executor;
 @Service
 public class OllamaChatClient extends AbstractOpenAIStyleChatClient {
 
-    public OllamaChatClient(OkHttpClient httpClient, Executor modelStreamExecutor) {
-        super(httpClient, modelStreamExecutor);
+    public OllamaChatClient(OkHttpClient syncHttpClient,
+                            OkHttpClient streamingHttpClient,
+                            Executor modelStreamExecutor) {
+        super(syncHttpClient, streamingHttpClient, modelStreamExecutor);
     }
 
     @Override

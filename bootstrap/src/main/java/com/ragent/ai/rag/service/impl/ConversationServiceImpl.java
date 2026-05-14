@@ -20,7 +20,6 @@ package com.ragent.ai.rag.service.impl;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.ragent.ai.rag.config.MemoryProperties;
-import com.ragent.ai.rag.controller.request.ConversationCreateRequest;
 import com.ragent.ai.rag.controller.request.ConversationUpdateRequest;
 import com.ragent.ai.rag.controller.vo.ConversationVO;
 import com.ragent.ai.rag.dao.entity.ConversationDO;
@@ -36,6 +35,7 @@ import com.ragent.ai.framework.exception.ClientException;
 import com.ragent.ai.infra.chat.LLMService;
 import com.ragent.ai.rag.core.prompt.PromptTemplateLoader;
 import com.ragent.ai.rag.service.ConversationService;
+import com.ragent.ai.rag.service.bo.ConversationCreateBO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -89,7 +89,7 @@ public class ConversationServiceImpl implements ConversationService {
     }
 
     @Override
-    public void createOrUpdate(ConversationCreateRequest request) {
+    public void createOrUpdate(ConversationCreateBO request) {
         String userId = request.getUserId();
         String conversationId = request.getConversationId();
         String question = request.getQuestion();

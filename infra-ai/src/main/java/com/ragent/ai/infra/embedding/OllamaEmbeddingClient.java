@@ -26,8 +26,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class OllamaEmbeddingClient extends AbstractOpenAIStyleEmbeddingClient {
 
-    public OllamaEmbeddingClient(OkHttpClient httpClient) {
-        super(httpClient);
+    public OllamaEmbeddingClient(OkHttpClient syncHttpClient) {
+        super(syncHttpClient);
     }
 
     @Override

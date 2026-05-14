@@ -23,6 +23,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
@@ -39,6 +40,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class HttpClientHelper {
 
+    @Qualifier("syncHttpClient")
     private final OkHttpClient client;
 
     public HttpFetchResponse get(String url, Map<String, String> headers) {

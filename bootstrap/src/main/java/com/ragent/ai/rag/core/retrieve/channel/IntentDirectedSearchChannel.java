@@ -21,6 +21,7 @@ import cn.hutool.core.collection.CollUtil;
 import com.ragent.ai.framework.convention.RetrievedChunk;
 import com.ragent.ai.rag.config.SearchChannelProperties;
 import com.ragent.ai.rag.core.intent.NodeScore;
+import com.ragent.ai.rag.core.intent.NodeScoreFilters;
 import com.ragent.ai.rag.core.retrieve.RetrieverService;
 import com.ragent.ai.rag.core.retrieve.channel.strategy.IntentParallelRetriever;
 import lombok.extern.slf4j.Slf4j;
@@ -46,9 +47,9 @@ public class IntentDirectedSearchChannel implements SearchChannel {
 
     public IntentDirectedSearchChannel(RetrieverService retrieverService,
                                        SearchChannelProperties properties,
-                                       @Qualifier("ragInnerRetrievalThreadPoolExecutor") Executor ragInnerRetrievalExecutor) {
+                                       Executor innerRetrievalExecutor) {
         this.properties = properties;
-        this.parallelRetriever = new IntentParallelRetriever(retrieverService, ragInnerRetrievalExecutor);
+        this.parallelRetriever = new IntentParallelRetriever(retrieverService, innerRetrievalExecutor);
     }
 
     @Override
@@ -92,7 +93,6 @@ public class IntentDirectedSearchChannel implements SearchChannel {
                         .channelType(SearchChannelType.INTENT_DIRECTED)
                         .channelName(getName())
                         .chunks(List.of())
-                        .confidence(0.0)
                         .latencyMs(System.currentTimeMillis() - startTime)
                         .build();
             }
@@ -108,22 +108,15 @@ public class IntentDirectedSearchChannel implements SearchChannel {
                     topKMultiplier
             );
 
-            // 计算置信度（基于意图分数）
-            double confidence = kbIntents.stream()
-                    .mapToDouble(NodeScore::getScore)
-                    .max()
-                    .orElse(0.0);
-
             long latency = System.currentTimeMillis() - startTime;
 
-            log.info("意图定向检索完成，检索到 {} 个 Chunk，置信度：{}，耗时 {}ms",
-                    allChunks.size(), confidence, latency);
+            log.info("意图定向检索完成，检索到 {} 个 Chunk，耗时 {}ms",
+                    allChunks.size(), latency);
 
             return SearchChannelResult.builder()
                     .channelType(SearchChannelType.INTENT_DIRECTED)
                     .channelName(getName())
                     .chunks(allChunks)
-                    .confidence(confidence)
                     .latencyMs(latency)
                     .metadata(Map.of("intentCount", kbIntents.size()))
                     .build();
@@ -134,7 +127,6 @@ public class IntentDirectedSearchChannel implements SearchChannel {
                     .channelType(SearchChannelType.INTENT_DIRECTED)
                     .channelName(getName())
                     .chunks(List.of())
-                    .confidence(0.0)
                     .latencyMs(System.currentTimeMillis() - startTime)
                     .build();
         }
@@ -150,11 +142,10 @@ public class IntentDirectedSearchChannel implements SearchChannel {
      */
     private List<NodeScore> extractKbIntents(SearchContext context) {
         double minScore = properties.getChannels().getIntentDirected().getMinIntentScore();
-        return context.getIntents().stream()
+        List<NodeScore> allScores = context.getIntents().stream()
                 .flatMap(si -> si.nodeScores().stream())
-                .filter(ns -> ns.getNode() != null && ns.getNode().isKB())
-                .filter(ns -> ns.getScore() >= minScore)
                 .toList();
+        return NodeScoreFilters.kb(allScores, minScore);
     }
 
     /**

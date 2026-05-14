@@ -26,20 +26,21 @@ import com.ragent.ai.rag.enums.IntentLevel;
 import com.ragent.ai.rag.core.intent.IntentNode;
 import com.ragent.ai.rag.core.intent.IntentNodeRegistry;
 import com.ragent.ai.rag.core.intent.NodeScore;
+import com.ragent.ai.rag.core.intent.NodeScoreFilters;
 import com.ragent.ai.rag.core.prompt.PromptTemplateLoader;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class IntentGuidanceService {
@@ -47,27 +48,23 @@ public class IntentGuidanceService {
     private final GuidanceProperties guidanceProperties;
     private final IntentNodeRegistry intentNodeRegistry;
     private final PromptTemplateLoader promptTemplateLoader;
+    private final AmbiguityLLMChecker ambiguityLLMChecker;
 
     public GuidanceDecision detectAmbiguity(String question, List<SubQuestionIntent> subIntents) {
         if (!Boolean.TRUE.equals(guidanceProperties.getEnabled())) {
             return GuidanceDecision.none();
         }
 
-        AmbiguityGroup group = findAmbiguityGroup(subIntents);
-        if (group == null || CollUtil.isEmpty(group.optionIds())) {
+        AmbiguityGroup group = findAmbiguityGroup(question, subIntents);
+        if (group == null || CollUtil.isEmpty(group.ranked())) {
             return GuidanceDecision.none();
         }
 
-        List<String> systemNames = resolveOptionNames(group.optionIds());
-        if (shouldSkipGuidance(question, systemNames)) {
-            return GuidanceDecision.none();
-        }
-
-        String prompt = buildPrompt(group.topicName(), group.optionIds());
+        String prompt = buildPrompt(group.topicName(), group.ranked());
         return GuidanceDecision.prompt(prompt);
     }
 
-    private AmbiguityGroup findAmbiguityGroup(List<SubQuestionIntent> subIntents) {
+    private AmbiguityGroup findAmbiguityGroup(String question, List<SubQuestionIntent> subIntents) {
         if (CollUtil.isEmpty(subIntents) || subIntents.size() != 1) {
             return null;
         }
@@ -77,88 +74,115 @@ public class IntentGuidanceService {
             return null;
         }
 
-        Map<String, List<NodeScore>> grouped = candidates.stream()
-                .filter(ns -> StrUtil.isNotBlank(ns.getNode().getName()))
-                .collect(Collectors.groupingBy(ns -> normalizeName(ns.getNode().getName())));
+        Map<String, NodeScore> systemBest = candidates.stream()
+                .filter(ns -> StrUtil.isNotBlank(resolveSystemNodeId(ns.getNode())))
+                .collect(Collectors.toMap(
+                        ns -> resolveSystemNodeId(ns.getNode()),
+                        ns -> ns,
+                        (a, b) -> a.getScore() >= b.getScore() ? a : b
+                ));
 
-        Optional<Map.Entry<String, List<NodeScore>>> best = grouped.entrySet().stream()
-                .map(entry -> Map.entry(entry.getKey(), sortByScore(entry.getValue())))
-                .filter(entry -> entry.getValue().size() > 1)
-                .filter(entry -> passScoreRatio(entry.getValue()))
-                .filter(entry -> hasMultipleSystems(entry.getValue()))
-                .max(Comparator.comparingDouble(entry -> entry.getValue().get(0).getScore()));
-
-        if (best.isEmpty()) {
-            return null;
-        }
-
-        List<NodeScore> groupScores = best.get().getValue();
-        String topicName = Optional.ofNullable(groupScores.get(0).getNode().getName())
-                .orElse(best.get().getKey());
-        List<String> optionIds = collectSystemOptions(groupScores);
-        if (optionIds.size() < 2) {
-            return null;
-        }
-        return new AmbiguityGroup(topicName, trimOptions(optionIds));
-    }
-
-    private List<NodeScore> filterCandidates(List<NodeScore> scores) {
-        if (CollUtil.isEmpty(scores)) {
-            return List.of();
-        }
-        return scores.stream()
-                .filter(ns -> ns.getScore() >= RAGConstant.INTENT_MIN_SCORE)
-                .filter(ns -> ns.getNode() != null && ns.getNode().isKB())
+        List<NodeScore> ranked = systemBest.values().stream()
+                .sorted(Comparator.comparingDouble(NodeScore::getScore).reversed())
                 .toList();
+
+        if (ranked.size() < 2) {
+            return null;
+        }
+
+        if (shouldSkipGuidance(question, ranked)) {
+            return null;
+        }
+
+        if (!confirmAmbiguity(question, ranked)) {
+            return null;
+        }
+
+        List<NodeScore> trimmedRanked = trimRankedOptions(ranked);
+        String topicName = trimmedRanked.get(0).getNode().getName();
+        return new AmbiguityGroup(topicName, trimmedRanked);
     }
 
-    private List<String> collectSystemOptions(List<NodeScore> groupScores) {
-        Set<String> ordered = new LinkedHashSet<>();
-        for (NodeScore score : groupScores) {
-            IntentNode node = score.getNode();
-            String systemId = resolveSystemNodeId(node);
-            if (StrUtil.isNotBlank(systemId)) {
-                ordered.add(systemId);
-            }
+    private boolean shouldSkipGuidance(String question, List<NodeScore> ranked) {
+        double top = ranked.get(0).getScore();
+        if (top <= 0) {
+            return true;
         }
-        return new ArrayList<>(ordered);
-    }
 
-    private boolean shouldSkipGuidance(String question, List<String> systemNames) {
-        if (StrUtil.isBlank(question) || CollUtil.isEmpty(systemNames)) {
-            return false;
+        // 快速通道 1：分数比值低于边界下限，意图明确
+        double ratio = ranked.get(1).getScore() / top;
+        double threshold = Optional.ofNullable(guidanceProperties.getAmbiguityScoreRatio()).orElse(0.8D);
+        double margin = Optional.ofNullable(guidanceProperties.getAmbiguityMargin()).orElse(0.15D);
+        if (ratio < threshold - margin) {
+            log.debug("分数比值(ratio={})低于边界下限({}), 跳过澄清", ratio, threshold - margin);
+            return true;
         }
-        String normalizedQuestion = normalizeName(question);
-        for (String name : systemNames) {
-            if (StrUtil.isBlank(name)) {
-                continue;
-            }
-            for (String alias : buildSystemAliases(name)) {
-                if (alias.length() < 2) {
-                    continue;
-                }
-                if (normalizedQuestion.contains(alias)) {
-                    return true;
+
+        // 快速通道 2：用户问题中显式提到了某个系统的 DOMAIN 级名称
+        if (StrUtil.isNotBlank(question)) {
+            List<String> domainNames = ranked.stream()
+                    .map(ns -> resolveDomainName(ns.getNode()))
+                    .filter(StrUtil::isNotBlank)
+                    .distinct()
+                    .toList();
+
+            String normalizedQuestion = normalizeName(question);
+            for (String name : domainNames) {
+                for (String alias : buildSystemAliases(name)) {
+                    if (alias.length() >= 2 && normalizedQuestion.contains(alias)) {
+                        log.debug("用户问题包含系统名[{}], 跳过澄清", name);
+                        return true;
+                    }
                 }
             }
         }
         return false;
     }
 
-    private List<String> resolveOptionNames(List<String> optionIds) {
-        if (CollUtil.isEmpty(optionIds)) {
+    private boolean confirmAmbiguity(String question, List<NodeScore> ranked) {
+        double top = ranked.get(0).getScore();
+        double second = ranked.get(1).getScore();
+        if (top <= 0) {
+            return false;
+        }
+
+        double ratio = second / top;
+        double threshold = guidanceProperties.getAmbiguityScoreRatio();
+        double margin = guidanceProperties.getAmbiguityMargin();
+
+        if (ratio >= threshold) {
+            log.info("分数比值(ratio={})超过阈值({}), 判定为歧义", ratio, threshold);
+            return true;
+        }
+
+        if (ratio >= threshold - margin) {
+            log.info("分数比值(ratio={})在边界区间[{}, {}), 调 LLM 确认", ratio, threshold - margin, threshold);
+            return ambiguityLLMChecker.checkAmbiguity(question, ranked);
+        }
+
+        // ratio < threshold - margin 但 > skipThreshold，不触发澄清
+        return false;
+    }
+
+    private List<NodeScore> filterCandidates(List<NodeScore> scores) {
+        if (CollUtil.isEmpty(scores)) {
             return List.of();
         }
-        List<String> names = new ArrayList<>();
-        for (String id : optionIds) {
-            IntentNode node = intentNodeRegistry.getNodeById(id);
-            if (node == null) {
-                continue;
-            }
-            String name = StrUtil.blankToDefault(node.getName(), node.getId());
-            names.add(name);
+        return NodeScoreFilters.kb(scores, RAGConstant.INTENT_MIN_SCORE);
+    }
+
+    private String resolveDomainName(IntentNode node) {
+        if (node == null) {
+            return "";
         }
-        return names;
+        IntentNode current = node;
+        while (current != null) {
+            if (current.getLevel() == IntentLevel.DOMAIN) {
+                return StrUtil.blankToDefault(current.getName(), "");
+            }
+            current = fetchParent(current);
+        }
+        return "";
     }
 
     private List<String> buildSystemAliases(String systemName) {
@@ -171,28 +195,6 @@ public class IntentGuidanceService {
             aliases.add(normalized);
         }
         return aliases;
-    }
-
-    private boolean passScoreRatio(List<NodeScore> group) {
-        if (group.size() < 2) {
-            return false;
-        }
-        double top = group.get(0).getScore();
-        double second = group.get(1).getScore();
-        if (top <= 0) {
-            return false;
-        }
-        double ratio = second / top;
-        return ratio >= Optional.ofNullable(guidanceProperties.getAmbiguityScoreRatio()).orElse(0.0D);
-    }
-
-    private boolean hasMultipleSystems(List<NodeScore> group) {
-        Set<String> systems = group.stream()
-                .map(NodeScore::getNode)
-                .map(this::resolveSystemNodeId)
-                .filter(StrUtil::isNotBlank)
-                .collect(Collectors.toSet());
-        return systems.size() > 1;
     }
 
     private String resolveSystemNodeId(IntentNode node) {
@@ -221,22 +223,16 @@ public class IntentGuidanceService {
         return intentNodeRegistry.getNodeById(node.getParentId());
     }
 
-    private List<NodeScore> sortByScore(List<NodeScore> scores) {
-        return scores.stream()
-                .sorted(Comparator.comparingDouble(NodeScore::getScore).reversed())
-                .toList();
-    }
-
-    private List<String> trimOptions(List<String> optionIds) {
-        int maxOptions = Optional.ofNullable(guidanceProperties.getMaxOptions()).orElse(optionIds.size());
-        if (optionIds.size() <= maxOptions) {
-            return optionIds;
+    private List<NodeScore> trimRankedOptions(List<NodeScore> ranked) {
+        int maxOptions = Optional.ofNullable(guidanceProperties.getMaxOptions()).orElse(ranked.size());
+        if (ranked.size() <= maxOptions) {
+            return ranked;
         }
-        return optionIds.subList(0, maxOptions);
+        return ranked.subList(0, maxOptions);
     }
 
-    private String buildPrompt(String topicName, List<String> optionIds) {
-        String options = renderOptions(optionIds);
+    private String buildPrompt(String topicName, List<NodeScore> ranked) {
+        String options = renderOptions(ranked);
         return promptTemplateLoader.render(
                 RAGConstant.GUIDANCE_PROMPT_PATH,
                 Map.of(
@@ -246,15 +242,24 @@ public class IntentGuidanceService {
         );
     }
 
-    private String renderOptions(List<String> optionIds) {
+    private String renderOptions(List<NodeScore> ranked) {
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < optionIds.size(); i++) {
-            String id = optionIds.get(i);
-            IntentNode node = intentNodeRegistry.getNodeById(id);
-            String name = node == null || StrUtil.isBlank(node.getName()) ? id : node.getName();
-            sb.append(i + 1).append(") ").append(name).append("\n");
+        for (int i = 0; i < ranked.size(); i++) {
+            IntentNode node = ranked.get(i).getNode();
+            String display = resolveOptionDisplay(node);
+            sb.append(i + 1).append(") ").append(display).append("\n");
         }
         return sb.toString().trim();
+    }
+
+    private String resolveOptionDisplay(IntentNode node) {
+        if (node == null) {
+            return "";
+        }
+        if (StrUtil.isNotBlank(node.getFullPath())) {
+            return node.getFullPath();
+        }
+        return StrUtil.blankToDefault(node.getName(), node.getId());
     }
 
     private String normalizeName(String name) {
@@ -265,7 +270,7 @@ public class IntentGuidanceService {
         return cleaned.replaceAll("[\\p{Punct}\\s]+", "");
     }
 
-    private record AmbiguityGroup(String topicName, List<String> optionIds) {
+    private record AmbiguityGroup(String topicName, List<NodeScore> ranked) {
 
     }
 }

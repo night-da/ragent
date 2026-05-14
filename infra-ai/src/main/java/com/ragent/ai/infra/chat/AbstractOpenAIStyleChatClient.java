@@ -51,12 +51,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 public abstract class AbstractOpenAIStyleChatClient implements ChatClient {
 
-    protected final OkHttpClient httpClient;
+    protected final OkHttpClient syncHttpClient;
+    protected final OkHttpClient streamingHttpClient;
     protected final Executor modelStreamExecutor;
     protected final Gson gson = new Gson();
 
-    protected AbstractOpenAIStyleChatClient(OkHttpClient httpClient, Executor modelStreamExecutor) {
-        this.httpClient = httpClient;
+    protected AbstractOpenAIStyleChatClient(OkHttpClient syncHttpClient,
+                                            OkHttpClient streamingHttpClient,
+                                            Executor modelStreamExecutor) {
+        this.syncHttpClient = syncHttpClient;
+        this.streamingHttpClient = streamingHttpClient;
         this.modelStreamExecutor = modelStreamExecutor;
     }
 
@@ -100,7 +104,7 @@ public abstract class AbstractOpenAIStyleChatClient implements ChatClient {
                 .build();
 
         JsonObject respJson;
-        try (Response response = httpClient.newCall(requestHttp).execute()) {
+        try (Response response = syncHttpClient.newCall(requestHttp).execute()) {
             if (!response.isSuccessful()) {
                 String body = HttpResponseHelper.readBody(response.body());
                 log.warn("{} 同步请求失败: status={}, body={}", provider(), response.code(), body);
@@ -134,7 +138,7 @@ public abstract class AbstractOpenAIStyleChatClient implements ChatClient {
                 .addHeader("Accept", "text/event-stream")
                 .build();
 
-        Call call = httpClient.newCall(streamRequest);
+        Call call = streamingHttpClient.newCall(streamRequest);
         boolean reasoningEnabled = isReasoningEnabledForStream(request);
         return StreamAsyncExecutor.submit(
                 modelStreamExecutor,
